@@ -34,12 +34,23 @@
 					{'defines': ['CORO_FIBER', 'WINDOWS']},
 				# else
 					{
+						'cflags': ['-Wno-deprecated-declarations'],
 						'defines': ['USE_CORO', 'CORO_GUARDPAGES=1'],
 						'ldflags': ['-pthread'],
 					}
 				],
-				['OS == "linux" or OS == "solaris" or OS == "sunos" or OS == "freebsd"', {'defines': ['CORO_UCONTEXT']}],
-				['OS == "mac"', {'defines': ['CORO_SJLJ']}],
+				['OS == "linux" or OS == "solaris" or OS == "sunos" or OS == "freebsd"',
+				    {
+				      'defines': ['CORO_UCONTEXT'],
+				      'cflags': ['-g']
+				    }],
+				['OS == "mac"', {
+					'defines': ['CORO_SJLJ'],
+					 'xcode_settings': {
+	           'GCC_OPTIMIZATION_LEVEL': '3',
+						 'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
+					 },
+				}],
 				['OS == "openbsd"', {'defines': ['CORO_ASM']}],
 				['target_arch == "arm"',
 					{
