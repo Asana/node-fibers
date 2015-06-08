@@ -21,7 +21,11 @@
 						'ldflags': ['-pthread'],
 					}
 				],
-				['OS == "linux" or OS == "solaris" or OS == "sunos" or OS == "freebsd"', {'defines': ['CORO_UCONTEXT']}],
+				['OS == "linux" or OS == "solaris" or OS == "sunos" or OS == "freebsd"',
+				    {
+				      'defines': ['CORO_UCONTEXT'],
+				      'cflags': ['-g']
+				    }],
 				['OS == "mac"', {
 					'defines': ['CORO_SJLJ'],
 					 'xcode_settings': {
