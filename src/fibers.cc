@@ -261,8 +261,6 @@ class Fiber {
 		 */
 		static void WeakCallback(void* data) {
 			Fiber& that = *static_cast<Fiber*>(data);
-			// Deprecated in 0781f42b6
-			assert(that.handle.IsNearDeath());
 			assert(current != &that);
 
 			// We'll unwind running fibers later... doing it from the garbage collector is bad news.
