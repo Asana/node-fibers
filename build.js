@@ -27,7 +27,7 @@ var args = process.argv.slice(2).filter(function(arg) {
 if (!debug) {
 	args.push('--release');
 }
-if (!{ia32: true, x64: true, arm: true, arm64: true, ppc: true, ppc64: true, s390: true, s390x: true}.hasOwnProperty(arch)) {
+if (!{x64: true, arm64: true}.hasOwnProperty(arch)) {
 	console.error('Unsupported (?) architecture: `'+ arch+ '`');
 	process.exit(1);
 }
