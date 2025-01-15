@@ -1,6 +1,6 @@
 {
 	"name": "fibers",
-	"version": "5.0.4",
+	"version": "5.1",
 	"description": "Cooperative multi-tasking for Javascript",
 	"keywords": [
 		"fiber",
