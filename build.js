@@ -60,7 +60,7 @@ function build() {
 		args.push('--target='+ process.versions.electron,  '--dist-url=https://atom.io/download/atom-shell');
 	}
 	cp.spawn(
-		process.platform === 'win32' ? 'node-gyp.cmd' : 'node-gyp',
+		'node-gyp',
 		['rebuild'].concat(args),
 		{stdio: [process.stdin, process.stdout, process.stderr]})
 	.on('exit', function(err) {
