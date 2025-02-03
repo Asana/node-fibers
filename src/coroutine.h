@@ -8,9 +8,6 @@ class Coroutine {
 		typedef void(entry_t)(void*);
 
 	private:
-#ifdef CORO_FIBER
-		void* stack_base;
-#endif
 		coro_context context;
 		coro_stack stack;
 		std::vector<void*> fls_data;

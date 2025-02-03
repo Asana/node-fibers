@@ -1,20 +1,7 @@
 #include "coroutine.h"
 #include "v8-version.h"
 #include <assert.h>
-#ifndef WINDOWS
 #include <pthread.h>
-#else
-#include <windows.h>
-#include <intrin.h>
-// Stub pthreads into Windows approximations
-#define pthread_t HANDLE
-#define pthread_create(thread, attr, fn, arg) !((*thread)=CreateThread(NULL, 0, &(fn), arg, 0, NULL))
-#define pthread_join(thread, arg) WaitForSingleObject((thread), INFINITE)
-#define pthread_key_t DWORD
-#define pthread_key_create(key, dtor) (*key)=TlsAlloc()
-#define pthread_setspecific(key, val) TlsSetValue((key), (val))
-#define pthread_getspecific(key) TlsGetValue((key))
-#endif
 
 #include <stdexcept>
 #include <stack>
@@ -35,19 +22,8 @@ static Coroutine* delete_me = NULL;
 size_t Coroutine::pool_size = 120;
 
 static bool can_poke(void* addr) {
-#ifdef WINDOWS
-	MEMORY_BASIC_INFORMATION mbi;
-	if (!VirtualQueryEx(GetCurrentProcess(), addr, &mbi, sizeof(mbi))) {
-		return false;
-	}
-	if (!(mbi.State & MEM_COMMIT)) {
-		return false;
-	}
-	return true;
-#else
 	// TODO?
 	return addr > (void*)0x1000;
-#endif
 }
 
 #ifdef USE_V8_SYMBOLS
@@ -75,11 +51,8 @@ namespace v8 {
 }
 #endif
 
-#ifndef WINDOWS
+
 static void* find_thread_id_key(void* arg)
-#else
-static DWORD __stdcall find_thread_id_key(LPVOID arg)
-#endif
 {
 	v8::Isolate* isolate = static_cast<v8::Isolate*>(arg);
 	assert(isolate != NULL);
@@ -177,13 +150,6 @@ void Coroutine::trampoline(void* that) {
 #ifdef CORO_PTHREAD
 	pthread_setspecific(coro_thread_key, that);
 #endif
-#ifdef CORO_FIBER
-	// I can't figure out how to get the precise base of the stack in Windows. Since CreateFiber
-	// creates the stack automatically we don't have access to the base. We can however grab the
-	// current esp position, and use that as an approximation. Padding is added for safety since the
-	// base is slightly different.
-	static_cast<Coroutine*>(that)->stack_base = (size_t*)_AddressOfReturnAddress() - stack_size + 16;
-#endif
 	if (!fls_data_pool.empty()) {
 		pthread_setspecific(thread_data_key, fls_data_pool.back());
 		pthread_setspecific(thread_id_key, fls_data_pool[fls_data_pool.size() - 2]);
@@ -213,9 +179,6 @@ Coroutine::~Coroutine() {
 	if (stack.sptr) {
 		coro_stack_free(&stack);
 	}
-#ifdef CORO_FIBER
-	if (context.fiber)
-#endif
 	(void)coro_destroy(&context);
 }
 
@@ -232,17 +195,6 @@ Coroutine* Coroutine::create_fiber(entry_t* entry, void* arg) {
 		return NULL;
 	}
 	coro_create(&coro->context, trampoline, coro, coro->stack.sptr, coro->stack.ssze);
-#ifdef CORO_FIBER
-	// Stupid hack. libcoro's project structure combined with Windows's CreateFiber functions makes
-	// it difficult to catch this error. Sometimes Windows will return `ERROR_NOT_ENOUGH_MEMORY` or
-	// `ERROR_COMMITMENT_LIMIT` if it can't make any more fibers. However, `coro_stack_alloc` returns
-	// success unconditionally on Windows so we have to detect the error here, after the call to
-	// `coro_create`.
-	if (!coro->context.fiber) {
-		delete coro;
-		return NULL;
-	}
-#endif
 	++coroutines_created_;
 	return coro;
 }
@@ -315,11 +267,7 @@ void Coroutine::finish(Coroutine& next, v8::Isolate* isolate) {
 }
 
 void* Coroutine::bottom() const {
-#ifdef CORO_FIBER
-	return stack_base;
-#else
 	return stack.sptr;
-#endif
 }
 
 size_t Coroutine::size() const {

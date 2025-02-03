@@ -119,24 +119,6 @@ extern "C" {
  *    (it is very fast and therefore recommended over other methods, but
  *    doesn't work with anything newer).
  *
- * -DCORO_LOSER
- *
- *    CORO_SJLJ variant.
- *    Microsoft's highly proprietary platform doesn't support sigaltstack, and
- *    this selects a suitable workaround for this platform. It might not work
- *    with your compiler though - it has only been tested with MSVC 6.
- *
- * -DCORO_FIBER
- *
- *    Slower, but probably more portable variant for the Microsoft operating
- *    system, using fibers. Ignores the passed stack and allocates it internally.
- *    Also, due to bugs in cygwin, this does not work with cygwin.
- *
- * -DCORO_IRIX
- *
- *    CORO_SJLJ variant.
- *    For SGI's version of Microsoft's NT ;)
- *
  * -DCORO_ASM
  *
  *    Hand coded assembly, known to work only on a few architectures/ABI:
@@ -295,26 +277,13 @@ void coro_stack_free (struct coro_stack *stack);
 
 /*****************************************************************************/
 
-#if !defined CORO_LOSER      && !defined CORO_UCONTEXT \
-    && !defined CORO_SJLJ    && !defined CORO_LINUX \
-    && !defined CORO_IRIX    && !defined CORO_ASM \
-    && !defined CORO_PTHREAD && !defined CORO_FIBER
-# if defined WINDOWS && (defined __i386 || (__x86_64 || defined _M_IX86 || defined _M_AMD64)
-#  define CORO_ASM 1
-# elif defined WINDOWS || defined _WIN32
-#  define CORO_LOSER 1 /* you don't win with windoze */
-# elif __linux && (__i386 || (__x86_64 && !__ILP32))
-#  define CORO_ASM 1
-# elif __APPLE__ && (__i386 || (__x86_64 && !__ILP32))
-#  define CORO_ASM 1
-# elif defined HAVE_UCONTEXT_H
-#  define CORO_UCONTEXT 1
-# elif defined HAVE_SETJMP_H && defined HAVE_SIGALTSTACK
-#  define CORO_SJLJ 1
-# else
+#if !defined CORO_UCONTEXT \
+    && !defined CORO_SJLJ \
+    && !defined CORO_LINUX \
+    && !defined CORO_ASM \
+    && !defined CORO_PTHREAD
 error unknown or unsupported architecture
 # endif
-#endif
 
 /*****************************************************************************/
 
@@ -330,32 +299,20 @@ struct coro_context
 # define coro_transfer(p,n) swapcontext (&((p)->uc), &((n)->uc))
 # define coro_destroy(ctx) (void *)(ctx)
 
-#elif CORO_SJLJ || CORO_LOSER || CORO_LINUX || CORO_IRIX
+#elif CORO_SJLJ || CORO_LINUX
 
 # if defined(CORO_LINUX) && !defined(_GNU_SOURCE)
 #  define _GNU_SOURCE /* for glibc */
 # endif
 
-# if !CORO_LOSER
-#  include <unistd.h>
-# endif
 
-/* solaris is hopelessly borked, it expands _XOPEN_UNIX to nothing */
-# if __sun
-#  undef _XOPEN_UNIX
-#  define _XOPEN_UNIX 1
-# endif
-
+# include <unistd.h>
 # include <setjmp.h>
 
 # if _XOPEN_UNIX > 0 || defined (_setjmp)
 #  define coro_jmp_buf      jmp_buf
 #  define coro_setjmp(env)  _setjmp (env)
 #  define coro_longjmp(env) _longjmp ((env), 1)
-# elif CORO_LOSER
-#  define coro_jmp_buf      jmp_buf
-#  define coro_setjmp(env)  setjmp (env)
-#  define coro_longjmp(env) longjmp ((env), 1)
 # else
 #  define coro_jmp_buf      sigjmp_buf
 #  define coro_setjmp(env)  sigsetjmp (env, 0)
@@ -392,19 +349,6 @@ struct coro_context
 {
   pthread_cond_t cv;
   pthread_t id;
-};
-
-void coro_transfer (coro_context *prev, coro_context *next);
-void coro_destroy (coro_context *ctx);
-
-#elif CORO_FIBER
-
-struct coro_context
-{
-  void *fiber;
-  /* only used for initialisation */
-  coro_func coro;
-  void *arg;
 };
 
 void coro_transfer (coro_context *prev, coro_context *next);

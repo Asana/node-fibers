@@ -27,7 +27,7 @@ var args = process.argv.slice(2).filter(function(arg) {
 if (!debug) {
 	args.push('--release');
 }
-if (!{ia32: true, x64: true, arm: true, arm64: true, ppc: true, ppc64: true, s390: true, s390x: true}.hasOwnProperty(arch)) {
+if (!{x64: true, arm64: true}.hasOwnProperty(arch)) {
 	console.error('Unsupported (?) architecture: `'+ arch+ '`');
 	process.exit(1);
 }
@@ -60,7 +60,7 @@ function build() {
 		args.push('--target='+ process.versions.electron,  '--dist-url=https://atom.io/download/atom-shell');
 	}
 	cp.spawn(
-		process.platform === 'win32' ? 'node-gyp.cmd' : 'node-gyp',
+		'node-gyp',
 		['rebuild'].concat(args),
 		{stdio: [process.stdin, process.stdout, process.stderr]})
 	.on('exit', function(err) {
