@@ -14,7 +14,6 @@ using namespace v8;
 
 // Handle legacy V8 API
 namespace uni {
-#if V8_AT_LEAST(5, 3)
 	// Actually 5.2.244
 	// ..or maybe actually 5.2.49
 	template <void (*F)(void*), class P>
@@ -26,38 +25,10 @@ namespace uni {
 	void MakeWeak(Isolate* isolate, Persistent<T>& handle, P* val) {
 		handle.SetWeak(val, WeakCallbackShim<F, P>, WeakCallbackType::kFinalizer);
 	}
-#elif V8_AT_LEAST(3, 26)
-	template <void (*F)(void*), class T, typename P>
-	void WeakCallbackShim(const v8::WeakCallbackData<T, P>& data) {
-		F(data.GetParameter());
-	}
-
-	template <void (*F)(void*), class T, typename P>
-	void MakeWeak(Isolate* isolate, Persistent<T>& handle, P* val) {
-		handle.SetWeak(val, WeakCallbackShim<F>);
-	}
-#else
-	template <void (*F)(void*)>
-	void WeakCallbackShim(Persistent<Value> value, void* data) {
-		F(data);
-	}
-	template <void (*F)(void*), class T, typename P>
-	void MakeWeak(Isolate* isolate, Persistent<T>& handle, P* val) {
-		handle.MakeWeak(val, WeakCallbackShim<F>);
-	}
-#endif
-
-#if V8_AT_LEAST(3, 28)
 	class TryCatch : public v8::TryCatch {
 		public: TryCatch(Isolate* isolate) : v8::TryCatch(isolate) {}
 	};
-#else
-	class TryCatch : public v8::TryCatch {
-		public: TryCatch(Isolate* isolate) : v8::TryCatch() {}
-	};
-#endif
 
-#if V8_AT_LEAST(4, 4)
 	Local<String> NewLatin1String(Isolate* isolate, const char* string) {
 		return String::NewFromOneByte(isolate, (const uint8_t*)string, NewStringType::kNormal).ToLocalChecked();
 	}
@@ -65,25 +36,7 @@ namespace uni {
 	Local<String> NewLatin1Symbol(Isolate* isolate, const char* string) {
 		return String::NewFromOneByte(isolate, (const uint8_t*)string, NewStringType::kNormal).ToLocalChecked();
 	}
-#elif V8_AT_LEAST(3, 26)
-	Handle<String> NewLatin1String(Isolate* isolate, const char* string) {
-		return String::NewFromOneByte(isolate, (const uint8_t*)string);
-	}
 
-	Handle<String> NewLatin1Symbol(Isolate* isolate, const char* string) {
-		return String::NewFromOneByte(isolate, (const uint8_t*)string);
-	}
-#else
-	Handle<String> NewLatin1String(Isolate* isolate, const char* string) {
-		return String::New(string);
-	}
-
-	Handle<String> NewLatin1Symbol(Isolate* isolate, const char* string) {
-		return String::NewSymbol(string);
-	}
-#endif
-
-#if V8_AT_LEAST(4, 4)
 	Local<Function> GetFunction(Local<FunctionTemplate> tmpl) {
 		return tmpl->GetFunction(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
 	}
@@ -100,54 +53,23 @@ namespace uni {
 	Local<Object> NewInstance(Isolate* isolate, Local<Function> fn, int argc, Local<Value> argv[]) {
 		return fn->NewInstance(isolate->GetCurrentContext(), argc, argv).ToLocalChecked();
 	}
-#else
-	Local<Function> GetFunction(Local<FunctionTemplate> tmpl) {
-		return tmpl->GetFunction();
-	}
 
-	Local<Value> Call(Local<Function> fn, Local<Object> recv, int argc, Local<Value> argv[]) {
-		return fn->Call(recv, argc, argv);
-	}
-
-	Handle<Object> NewInstance(Isolate* isolate, Local<Function> fn, int argc, Local<Value> argv[]) {
-		return fn->NewInstance(argc, argv).ToLocalChecked();
-	}
-#endif
-
-#if V8_AT_LEAST(4, 4)
 	Local<Number> ToNumber(Local<Value> value) {
 		return value->ToNumber(Isolate::GetCurrent()->GetCurrentContext()).ToLocalChecked();
 	}
-#else
-	Handle<Number> ToNumber(Local<Value> value) {
-		return value->ToNumber();
-	}
-#endif
 
-#if V8_AT_LEAST(6, 1)
 	Local<Value> GetStackTrace(TryCatch* try_catch, Local<Context> context) {
 		return try_catch->StackTrace(context).ToLocalChecked();
 	}
-#else
-	Local<Value> GetStackTrace(TryCatch* try_catch, Handle<Context> context) {
-		return try_catch->StackTrace();
-	}
-#endif
 
-// Workaround for v8 issue #1180
-// http://code.google.com/p/v8/issues/detail?id=1180
-// NOTE: it's not clear if this is still necessary (perhaps Isolate::SetStackLimit could be used?)
-#if V8_AT_LEAST(6, 1)
+
+	// Workaround for v8 issue #1180
+	// http://code.google.com/p/v8/issues/detail?id=1180
+	// NOTE: it's not clear if this is still necessary (perhaps Isolate::SetStackLimit could be used?)
 	void fixStackLimit(Isolate* isolate, Local<Context> context) {
 		Script::Compile(context, uni::NewLatin1String(isolate, "void 0;")).ToLocalChecked();
 	}
-#else
-	void fixStackLimit(Isolate* isolate, Handle<Context> context) {
-		Script::Compile(uni::NewLatin1String(isolate, "void 0;"));
-	}
-#endif
 
-#if V8_AT_LEAST(3, 26)
 	// Node v0.11.13+
 	typedef PropertyCallbackInfo<Value> GetterCallbackInfo;
 	typedef PropertyCallbackInfo<void> SetterCallbackInfo;
@@ -250,103 +172,7 @@ namespace uni {
 	void AdjustAmountOfExternalAllocatedMemory(Isolate* isolate, int64_t change_in_bytes) {
 		isolate->AdjustAmountOfExternalAllocatedMemory(change_in_bytes);
 	}
-#else
-	// Node v0.10.x and lower
-	typedef AccessorInfo GetterCallbackInfo;
-	typedef AccessorInfo SetterCallbackInfo;
-	typedef Handle<Value> FunctionType;
-	typedef Arguments Arguments;
 
-	class HandleScope {
-		v8::HandleScope scope;
-		public: HandleScope(Isolate* isolate) {}
-	};
-
-	template <class T>
-	void Reset(Isolate* isolate, Persistent<T>& persistent, Handle<T> handle) {
-		persistent = Persistent<T>::New(handle);
-	}
-	template <class T>
-	void Dispose(Isolate* isolate, Persistent<T>& handle) {
-		handle.Dispose();
-	}
-
-	template <class T>
-	void ClearWeak(Isolate* isolate, Persistent<T>& handle) {
-		handle.ClearWeak();
-	}
-
-	template <class T>
-	void SetInternalPointer(Handle<T> handle, int index, void* val) {
-		handle->SetPointerInInternalField(index, val);
-	}
-	template <class T>
-	void* GetInternalPointer(Handle<T> handle, int index) {
-		return handle->GetPointerFromInternalField(index);
-	}
-
-	template <class T>
-	Handle<T> Deref(Isolate* isolate, Persistent<T>& handle) {
-		return Local<T>::New(handle);
-	}
-
-	Handle<Value> Return(Handle<Value> handle, GetterCallbackInfo info) {
-		return handle;
-	}
-
-	Handle<Value> Return(Handle<Value> handle, const Arguments& args) {
-		return handle;
-	}
-
-	Handle<Value> ThrowException(Isolate* isolate, Handle<Value> exception) {
-		return ThrowException(exception);
-	}
-
-	Handle<Context> GetCurrentContext(Isolate* isolate) {
-		return Context::GetCurrent();
-	}
-
-	Handle<Primitive> Undefined(Isolate* isolate) {
-		return v8::Undefined();
-	}
-
-	Handle<Boolean> NewBoolean(Isolate* isolate, bool value) {
-		return Boolean::New(value);
-	}
-
-	Handle<Number> NewNumber(Isolate* isolate, double value) {
-		return Number::New(value);
-	}
-
-	Handle<FunctionTemplate> NewFunctionTemplate(
-		Isolate* isolate,
-		InvocationCallback callback,
-		Handle<Value> data = Handle<Value>(),
-		Handle<Signature> signature = Handle<Signature>(),
-		int length = 0
-	) {
-		return FunctionTemplate::New(callback, data, signature);
-	}
-
-	Handle<Signature> NewSignature(
-		Isolate* isolate,
-		Handle<FunctionTemplate> receiver = Handle<FunctionTemplate>(),
-		int argc = 0,
-		Handle<FunctionTemplate> argv[] = 0
-	) {
-		return Signature::New(receiver, argc, argv);
-	}
-
-	class ReverseIsolateScope {
-		public: explicit inline ReverseIsolateScope(Isolate* isolate) {}
-	};
-
-	void AdjustAmountOfExternalAllocatedMemory(Isolate* isolate, int64_t change_in_bytes) {
-		V8::AdjustAmountOfExternalAllocatedMemory(change_in_bytes);
-	}
-#endif
-
-#if V8_AT_LEAST(6, 1)
 	void SetAccessor(
 		Isolate* isolate, Local<Object> object, Local<String> name,
 		FunctionType (*getter)(Local<String>, const GetterCallbackInfo&),
@@ -354,45 +180,11 @@ namespace uni {
 	) {
 		object->SetAccessor(isolate->GetCurrentContext(), name, (AccessorNameGetterCallback)getter, (AccessorNameSetterCallback)setter).ToChecked();
 	}
-#elif V8_AT_LEAST(4, 4)
-	void SetAccessor(
-		Isolate* isolate, Local<Object> object, Local<String> name,
-		FunctionType (*getter)(Local<String>, const GetterCallbackInfo&),
-		void (*setter)(Local<String> property, Local<Value> value, const SetterCallbackInfo&) = 0
-	) {
-		object->SetAccessor(isolate->GetCurrentContext(), name, (AccessorNameGetterCallback)getter, (AccessorNameSetterCallback)setter);
-	}
-#else
-	void SetAccessor(
-		Isolate* isolate, Local<Object> object, Local<String> name,
-		FunctionType (*getter)(Local<String>, const GetterCallbackInfo&),
-		void (*setter)(Local<String> property, Local<Value> value, const SetterCallbackInfo&) = 0
-	) {
-		object->SetAccessor(name, (AccessorNameGetterCallback)getter, (AccessorNameSetterCallback)setter);
-	}
-#endif
 
-#if V8_AT_LEAST(3, 29)
 	// This was actually added in 3.29.67
 	void SetStackGuard(Isolate* isolate, void* guard) {
 		isolate->SetStackLimit(reinterpret_cast<uintptr_t>(guard));
 	}
-#elif V8_AT_LEAST(3, 26)
-	void SetStackGuard(Isolate* isolate, void* guard) {
-		ResourceConstraints constraints;
-		constraints.set_stack_limit(reinterpret_cast<uint32_t*>(guard));
-		v8::SetResourceConstraints(isolate, &constraints);
-	}
-#else
-	// Extra padding for old versions of v8. Shit's fucked.
-	void SetStackGuard(Isolate* isolate, void* guard) {
-		ResourceConstraints constraints;
-		constraints.set_stack_limit(
-			reinterpret_cast<uint32_t*>(guard) + 18 * 1024
-		);
-		v8::SetResourceConstraints(&constraints);
-	}
-#endif
 }
 
 class Fiber {
@@ -469,10 +261,6 @@ class Fiber {
 		 */
 		static void WeakCallback(void* data) {
 			Fiber& that = *static_cast<Fiber*>(data);
-#if !V8_AT_LEAST(7, 4)
-			// Deprecated in 0781f42b6
-			assert(that.handle.IsNearDeath());
-#endif
 			assert(current != &that);
 
 			// We'll unwind running fibers later... doing it from the garbage collector is bad news.
@@ -908,9 +696,6 @@ vector<Fiber*> Fiber::orphaned_fibers;
 Persistent<Value> Fiber::fatal_stack;
 bool did_init = false;
 
-#if !NODE_VERSION_AT_LEAST(0,10,0)
-extern "C"
-#endif
 void init(Local<Object> target) {
 	Isolate* isolate = Isolate::GetCurrent();
 	Local<Context> context = isolate->GetCurrentContext();

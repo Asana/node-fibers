@@ -56,9 +56,6 @@ if (!force) {
 
 // Build it
 function build() {
-	if (process.versions.electron) {
-		args.push('--target='+ process.versions.electron,  '--dist-url=https://atom.io/download/atom-shell');
-	}
 	cp.spawn(
 		'node-gyp',
 		['rebuild'].concat(args),
@@ -106,9 +103,4 @@ function afterBuild() {
 	}
 	fs.renameSync(targetPath, installPath);
 	console.log('Installed in `'+ installPath+ '`');
-	if (process.versions.electron) {
-		process.nextTick(function() {
-			require('electron').app.quit();
-		});
-	}
 }
