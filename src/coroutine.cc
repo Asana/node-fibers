@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <stack>
 #include <vector>
+#include <iostream>
 using namespace std;
 
 const size_t v8_tls_keys = 3;
@@ -54,11 +55,13 @@ namespace v8 {
 
 static void* find_thread_id_key(void* arg)
 {
+//std::cout << "find_thread_id_key : 1\n";
 	v8::Isolate* isolate = static_cast<v8::Isolate*>(arg);
 	assert(isolate != NULL);
 	v8::Locker locker(isolate);
 	isolate->Enter();
 
+//std::cout << "find_thread_id_key : 1\n";
 	// First pass-- find isolate thread key
 #ifdef __MUSL__
 	// 128 is default max key in musl
@@ -74,6 +77,7 @@ static void* find_thread_id_key(void* arg)
 	}
 	assert(isolate_key != 0x7777);
 
+//std::cout << "find_thread_id_key : 2\n";
 	// Second pass-- find data key
 	int thread_id = 0;
 #ifdef __MUSL__
@@ -92,6 +96,7 @@ static void* find_thread_id_key(void* arg)
 	}
 	assert(thread_data_key != 0x7777);
 
+//std::cout << "find_thread_id_key : 3\n";
 	// Third pass-- find thread id key
 #ifdef __MUSL__
 	for (pthread_key_t ii = 0; ii < 128; ++ii) {
@@ -107,6 +112,7 @@ static void* find_thread_id_key(void* arg)
 	assert(thread_id_key != 0x7777);
 
 	isolate->Exit();
+//std::cout << "find_thread_id_key : 4 done\n";
 	return NULL;
 }
 
@@ -122,9 +128,12 @@ void Coroutine::init(v8::Isolate* isolate) {
 	thread_data_key = v8::internal::Isolate::per_isolate_thread_data_key_;
 	thread_id_key = v8::internal::Isolate::thread_id_key_;
 #else
+//std::cout << "START THREAD\n";
 	pthread_t thread;
+//std::cout << "TRYING TO GET THREAD_ID_KEY\n";
 	pthread_create(&thread, NULL, find_thread_id_key, isolate);
 	pthread_join(thread, NULL);
+//std::cout << "DONE THREAD\n";
 #endif
 }
 

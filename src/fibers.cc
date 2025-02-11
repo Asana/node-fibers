@@ -22,9 +22,14 @@ namespace uni {
 		F(data.GetParameter());
 	}
 
+	//template <void (*F)(void*), class T, typename P>
+	//void MakeWeak(Isolate* isolate, Persistent<T>& handle, P* val) {
+		//handle.SetWeak(val, WeakCallbackShim<F, P>, WeakCallbackType::kFinalizer);
+	//}
 	template <void (*F)(void*), class T, typename P>
-	void MakeWeak(Isolate* isolate, Persistent<T>& handle, P* val) {
-		handle.SetWeak(val, WeakCallbackShim<F, P>, WeakCallbackType::kFinalizer);
+		void MakeWeak(v8::Isolate* isolate, v8::Persistent<T>& handle, P* val) {
+    		// Use v8::WeakCallbackType::kParameter instead of kFinalizer
+    		handle.SetWeak(val, WeakCallbackShim<F, P>, v8::WeakCallbackType::kParameter);
 	}
 #elif V8_AT_LEAST(3, 26)
 	template <void (*F)(void*), class T, typename P>
